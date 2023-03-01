@@ -8,6 +8,7 @@
     "moduleResolution": "node",
     "skipLibCheck": true,
     "strictNullChecks": true,
+    "rootDir": "src",
     "outDir": "built"
   }
 }
