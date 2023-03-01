@@ -8,16 +8,16 @@ import child_process from 'child_process';
 import globToRegExp from 'glob-to-regexp';
 import { promisify } from 'util';
 
-let rl:readline.Interface = readline.createInterface({
+let rl: readline.Interface = readline.createInterface({
     input: process.stdin,
     output: process.stdout
 });
-function rlqconvert(query:string, cb:(er:Error, response:string)=>void) {
-    rl.question(query, (ans)=>{
-        cb(null, ans); 
+function rlqConvert(query: string, cb: (er: Error | null, response: string) => void) {
+    rl.question(query, (ans) => {
+        cb(null, ans);
     });
 }
-let question_async = promisify(rlqconvert)
+let question_async = promisify(rlqConvert)
 
 
 let PLIST_PATH = "/System/Volumes/Data/.Spotlight-V100/VolumeConfiguration.plist";
@@ -76,9 +76,9 @@ if (process.argv.includes("-h") || process.argv.includes("--help")) {
 }
 
 
-async function main():Promise<number> {
+async function main(): Promise<number> {
 
-    if (!process.argv[2]) { 
+    if (!process.argv[2]) {
         console.log(USAGE);
         throw new Error("Invalid usage: subcommand missing");
     }
@@ -86,12 +86,12 @@ async function main():Promise<number> {
     let args = process.argv.slice(3);
     let exitcode = 1;
     switch (subcommand) {
-        case "exclude"          :   exitcode = await cmd_exclude(args);  break;
-        case "unexclude"        :   exitcode = await cmd_unexclude(args);break;
-        case "add"              :   exitcode = await cmd_add(args);      break;
-        case "remove"           :   exitcode = await cmd_remove(args);   break;
-        case "list"             :   exitcode = await cmd_list(args);     break;
-        case "job"              :   exitcode = await cmd_job(args);      break;
+        case "exclude": exitcode = await cmd_exclude(args); break;
+        case "unexclude": exitcode = await cmd_unexclude(args); break;
+        case "add": exitcode = await cmd_add(args); break;
+        case "remove": exitcode = await cmd_remove(args); break;
+        case "list": exitcode = await cmd_list(args); break;
+        case "job": exitcode = await cmd_job(args); break;
         default:
             console.log(USAGE);
             throw new Error("Invalid usage: no such subcommand");
@@ -99,7 +99,7 @@ async function main():Promise<number> {
     return exitcode;
 }
 
-async function cmd_exclude(args:string[]):Promise<number> {
+async function cmd_exclude(args: string[]): Promise<number> {
     let confirm = !args.includes('--force');
     let exclude_name;
     if (args[0]) {
@@ -109,16 +109,17 @@ async function cmd_exclude(args:string[]):Promise<number> {
         throw new Error("First Argument Missing!");
     }
 
-    let searchdir:string = process.env.PWD;
+    let searchdir: string = process.env.PWD || '';
     if (args[1] && args[1] != '--force') {
         searchdir = args[1];
     }
     if (searchdir.includes("~")) {
+        if (!process.env.HOME) throw new Error('env $HOME undefined.')
         searchdir.replace("~", process.env.HOME)
     }
 
     let m = await getMatches();
-    if (confirm) { 
+    if (confirm) {
         if ((await question_async("Confirm (y/N)?")).toLowerCase() != 'y') { return 1; }
     }
     let pl_f = generateNewPlist(m);
@@ -135,63 +136,63 @@ async function cmd_exclude(args:string[]):Promise<number> {
             absolute: true,
         });
         for (let d of dirs) { console.log(d); }
-        console.log("\nThese ("+dirs.length+") directories will be added to Spotlight's excluded dirs list, if not added already.\n");
+        console.log("\nThese (" + dirs.length + ") directories will be added to Spotlight's excluded dirs list, if not added already.\n");
         return dirs;
     }
-    
+
     // Returns modified plist
-    function generateNewPlist(matches:string[]): string {
+    function generateNewPlist(matches: string[]): string {
         let pl_file = "";
-        try { pl_file = fs.readFileSync(PLIST_PATH).toString(); } catch(e) {
-            throw new Error('Unable to read spotlight plist at ' + PLIST_PATH + '\nAre you sure you are running as sudo ?\n'+
-                           'In future versions of macOS beyond 11.2 (Big Sur) the plist path may have moved.');
+        try { pl_file = fs.readFileSync(PLIST_PATH).toString(); } catch (e) {
+            throw new Error('Unable to read spotlight plist at ' + PLIST_PATH + '\nAre you sure you are running as sudo ?\n' +
+                'In future versions of macOS beyond 11.2 (Big Sur) the plist path may have moved.');
         }
-    
+
         let pl = plist.parse(pl_file);
-    
-        let new_m = [];
+
+        let new_m: string[] = [];
         for (let m of matches) {
             if (!pl['Exclusions'].includes(m)) {
                 new_m.push(m);
                 pl['Exclusions'].push(m);
             }
         }
-    
+
         console.log("\n\nNew Paths:");
         for (let m of new_m) { console.log(m); }
-        console.log("\n"+new_m.length+"/"+matches.length+" paths are not already excluded.");
-    
+        console.log("\n" + new_m.length + "/" + matches.length + " paths are not already excluded.");
+
         return plist.build(pl);
     }
-    
-    
-    function writePlist(f:string) {
+
+
+    function writePlist(f: string) {
         fs.writeFileSync(PLIST_PATH, f);
         console.log("Plist updated. Restarting MDS...");
     }
-    
+
     function restartMDS() {
-        child_process.exec("launchctl stop com.apple.metadata.mds", (err, stdout, stderr) => { 
+        child_process.exec("launchctl stop com.apple.metadata.mds", (err, stdout, stderr) => {
             if (stderr) { throw stderr; }
-            child_process.exec("launchctl start com.apple.metadata.mds", (err2, stdout2, stderr2) => { 
-                if (stderr2) { throw stderr2; } 
-                
+            child_process.exec("launchctl start com.apple.metadata.mds", (err2, stdout2, stderr2) => {
+                if (stderr2) { throw stderr2; }
+
                 if (stderr || stderr2) {
-                    throw new Error("There was an error restarting the com.apple.metadata.mds service, "+
-                                "which is required for changes to take effect. Restarting your computer will also restart the service");
+                    throw new Error("There was an error restarting the com.apple.metadata.mds service, " +
+                        "which is required for changes to take effect. Restarting your computer will also restart the service");
                 }
             });
         });
-    
+
     }
-    
+
     function finalMessage() {
         console.log("\nDone. Verify that new directories were added by navigating to System Preferences > Spotlight > Privacy");
     }
-    
+
 }
 
-async function cmd_unexclude(args:string[]): Promise<number> {
+async function cmd_unexclude(args: string[]): Promise<number> {
 
     let confirm = !args.includes('--force');
     let exclude_name;
@@ -201,29 +202,30 @@ async function cmd_unexclude(args:string[]): Promise<number> {
         console.log(USAGE);
         throw new Error("First Argument Missing!");
     }
-    
-    let searchdir:string = process.env.PWD;
+
+    let searchdir: string = process.env.PWD || '';
     if (args[1] && args[1] != '--force') {
         searchdir = args[1];
     }
     if (searchdir.includes("~")) {
+        if (!process.env.HOME) throw new Error('env $HOME undefined.')
         searchdir.replace("~", process.env.HOME)
     }
 
 
     let plf;
-    try { plf = fs.readFileSync(PLIST_PATH); } catch(e) {
-        throw new Error('Unable to read spotlight plist at ' + PLIST_PATH + '\nAre you sure you are running as sudo ?\n'+
-                           'In future versions of macOS beyond 11.2 (Big Sur) the plist path may have moved.');
+    try { plf = fs.readFileSync(PLIST_PATH); } catch (e) {
+        throw new Error('Unable to read spotlight plist at ' + PLIST_PATH + '\nAre you sure you are running as sudo ?\n' +
+            'In future versions of macOS beyond 11.2 (Big Sur) the plist path may have moved.');
     }
 
     let p = plist.parse(plf.toString());
 
     let excscopy: string[] = JSON.parse(JSON.stringify(p['Exclusions']));
-    let newexcs = [];
-    let rming = [];
-    let re = globToRegExp(searchdir+"/**/"+exclude_name);
-    
+    let newexcs: string[] = [];
+    let rming: string[] = [];
+    let re = globToRegExp(searchdir + "/**/" + exclude_name);
+
     for (let exc of excscopy) {
         if (!re.test(exc)) {
             newexcs.push(exc);
@@ -233,10 +235,10 @@ async function cmd_unexclude(args:string[]): Promise<number> {
     }
 
     p['Exclusions'] = newexcs;
-   
+
     for (let r of rming) { console.log(r); }
-    console.log("Found ("+rming.length+") excluded dirs that match the expression:");
-    console.log(searchdir+"/**/"+exclude_name);
+    console.log("Found (" + rming.length + ") excluded dirs that match the expression:");
+    console.log(searchdir + "/**/" + exclude_name);
 
     if (confirm) {
         if ((await question_async("\nRemove all from Spotlight excluded list? (y/N)")).toLowerCase() != 'y') { return 1; }
@@ -248,7 +250,7 @@ async function cmd_unexclude(args:string[]): Promise<number> {
 
 
 
-async function cmd_job(args:string[]): Promise<number> {
+async function cmd_job(args: string[]): Promise<number> {
     let es = get_excludes();
     for (let e of es) {
         if (e.length < 1) { continue; }
@@ -259,7 +261,7 @@ async function cmd_job(args:string[]): Promise<number> {
     return 0;
 }
 
-async function cmd_add(args:string[]): Promise<number> {
+async function cmd_add(args: string[]): Promise<number> {
     let toadd = get_exclude_info(args);
     let line = toadd.name + " ~~~ " + toadd.base
     let es = get_excludes();
@@ -269,11 +271,11 @@ async function cmd_add(args:string[]): Promise<number> {
     return cmd_job([]);
 }
 
-async function cmd_remove(args:string[]): Promise<number> {
+async function cmd_remove(args: string[]): Promise<number> {
     let ex = get_exclude_info(args);
     let line = ex.name + " ~~~ " + ex.base;
     let es = get_excludes();
-    let newlist = [];
+    let newlist: string[] = [];
     for (let e of es) {
         if (e.length < 1) { continue; }
         if (e != line) {
@@ -284,7 +286,7 @@ async function cmd_remove(args:string[]): Promise<number> {
     return cmd_unexclude(args);
 }
 
-async function cmd_list(args:string[]): Promise<number> {
+async function cmd_list(args: string[]): Promise<number> {
     let es = get_excludes();
     for (let l of es) {
         if (l.length < 1) { continue; }
@@ -300,22 +302,22 @@ async function cmd_list(args:string[]): Promise<number> {
             let plist_str;
             try {
                 plist_str = fs.readFileSync(PLIST_PATH);
-            } catch(e) { throw new Error("Could not read Spotlight plist. You may need to run this command using sudo.") }
+            } catch (e) { throw new Error("Could not read Spotlight plist. You may need to run this command using sudo.") }
             let p = plist.parse(plist_str.toString());
-            let pcount = 0; 
+            let pcount = 0;
             for (let e of p['Exclusions']) {
                 if (r.test(e)) {
-                    console.log("    "+e);
+                    console.log("    " + e);
                     pcount++;
                 }
             }
-            console.log("    ---- ("+pcount+") matching directories found here. ----");
+            console.log("    ---- (" + pcount + ") matching directories found here. ----");
         }
     }
     return 0;
 }
 
-function get_exclude_info(args:string[]):{ name:string, base:string }  {
+function get_exclude_info(args: string[]): { name: string, base: string } {
     let exclude_name;
     if (args[0]) {
         exclude_name = args[0];
@@ -323,14 +325,15 @@ function get_exclude_info(args:string[]):{ name:string, base:string }  {
         console.log(USAGE);
         throw new Error("First Argument Missing!");
     }
-
-    let searchdir:string = process.env.PWD;
+    let searchdir: string = process.env.PWD || '';
     if (args[1] && args[1] != '--force') {
         searchdir = args[1];
     }
     if (searchdir.includes("~")) {
+        if (!process.env.HOME) throw new Error('env $HOME undefined.')
         searchdir.replace("~", process.env.HOME)
     }
+    
     while (searchdir.endsWith('/')) {
         searchdir = searchdir.substring(0, searchdir.length - 1);
     }
@@ -343,7 +346,7 @@ function get_exclude_info(args:string[]):{ name:string, base:string }  {
     searchdir = searchdir.replace("//", "/");
     exclude_name = exclude_name.replace("//", "/");
 
-    let out = { name:exclude_name, base:searchdir };
+    let out = { name: exclude_name, base: searchdir };
     return out;
 }
 
@@ -351,16 +354,16 @@ function get_exclude_info(args:string[]):{ name:string, base:string }  {
 let fname = ".spotlight-manager";
 let dfpath = process.env.HOME + "/" + fname
 
-function get_excludes():string[] {
+function get_excludes(): string[] {
     if (!fs.existsSync(dfpath)) { fs.writeFileSync(dfpath, ""); }
     let dotfs = fs.readFileSync(dfpath).toString().split('\n');
     return dotfs;
 }
 
-function set_excludes(excludes:string[]) {
+function set_excludes(excludes: string[]) {
     let s = "";
     for (let e of excludes) {
-        s+=e+"\n";
+        s += e + "\n";
     }
     fs.writeFileSync(dfpath, s);
 }
@@ -372,7 +375,7 @@ async function err_launch() {
     let c_reset = "\x1b[0m"
 
 
-    try { process.exit(await main()); } catch(e) {
+    try { process.exit(await main()); } catch (e) {
         console.log("");
         console.log(c_bright + c_fgred + "Error:");
         console.log(c_bright + c_fgred + e.message);
