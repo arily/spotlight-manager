@@ -1,74 +1,30 @@
-#!/usr/bin/env node
+import './checks/assert-target-os.js'
 
 import readline from 'readline'
-import plist, { PlistObject } from 'plist'
+import plist from 'plist'
 import glob from 'fast-glob'
 import fs from 'fs'
 import child_process from 'child_process'
 import globToRegExp from 'glob-to-regexp'
-import { promisify } from 'util'
-import { join } from 'path'
 
-const PLIST_PATH = '/System/Volumes/Data/.Spotlight-V100/VolumeConfiguration.plist'
-const USAGE = `
-SPOTLIGHT MANAGER:
+import { USAGE } from './usage.js'
 
-spotlight-manager <SUBCOMMAND> [<subcommand_args...>] [flags]
+import { isMacOSVersionGreaterThanOrEqualTo } from 'macos-version'
 
-SUBCOMMANDS:
+import { createContext } from './config/index.js'
+const config = createContext()
 
-    exclude         <DIRNAME_TO_EXCLUDE> <SEARCH_DIR (optional)> [--force]
-                    Add all matching dirs to spotlight's exclusions.
-        
-        <DIRNAME_TO_EXCLUDE>    Name of directory you want to exclude.
+const { excludes: { get: getExcludes, insert, removeOne } } = config
 
-        <SEARCH_DIR>            The directory in which to recursively search.
-                                (optional): Will use cwd by default.
-
-        --force                 Do not ask for confirmation, useful for 
-                                calling from another script.
-
-    unexclude       <DIRNAME_TO_UNEXCLUDE> <SEARCH_DIR (optional)> [--force]
-                    Remove excluded dirs matching these rules from spotlight's 
-                    exclusions. (renable indexing of this directory)
-    job   
-                    Search for any new exclusions that match saved 
-                    exclusion rules and exclude all at once. (use for cron job)
-                        <!> NOTE: job can only exclude new exclusions. <!> 
-                    This prevents unrelated exclusions from being affected.
-
-    add             <DIRNAME_TO_EXCLUDE> <SEARCH_DIR (optional)> [--force]
-                    Add exclusion rule to be checked by job, and run job once.
-
-    remove          <DIRNAME_TO_EXCLUDE> <SEARCH_DIR> [--force]
-                    Remove exclusion rule checked by job, and run !! unexclude !!
-                    NOT job because job does not remove exclusions.
-                    <!> Assumes matching exclusions were all added by manager <!>
-
-    list            [--showPaths] 
-                    List all added exclude rules. (Only lists rules added via 
-                    <add>. Rules added directly via <exclude> subcommand
-                    are not tracked.)
-
-        --showPaths             Print all added exclude rules and all 
-                                actual paths the rule matches that are
-                                excluded in the plist.
-
-FLAGS:
-
-    -h | --help     Print this page.
-`
-
+interface SpotlightPList { Exclusions: string[] }
+const { spotlightPList } = await config.get()
+const PLIST_PATH = spotlightPList
 const rl: readline.Interface = readline.createInterface({
   input: process.stdin,
   output: process.stdout
 })
-function rlqConvert (query: string, cb: (er: Error | null, response: string) => void) {
-  rl.question(query, (ans) => {
-    cb(null, ans)
-  })
-}
-const question = promisify(rlqConvert)
+
+const question = async (query) => await new Promise<string>((resolve, reject) => { rl.question(query, (answer) => { resolve(answer) }) })
 
 if (process.argv.includes('-h') || process.argv.includes('--help')) {
   console.log(USAGE)
@@ -158,7 +114,7 @@ async function cmdExclude (args: string[]): Promise<number> {
                 'In future versions of macOS beyond 11.2 (Big Sur) the plist path may have moved.')
     }
 
-    const pl = plist.parse(plFile)
+    const pl = plist.parse(plFile) as plist.PlistObject & SpotlightPList
 
     const newM: string[] = []
     for (const m of matches) {
@@ -170,7 +126,7 @@ async function cmdExclude (args: string[]): Promise<number> {
 
     console.log('\n\nNew Paths:')
     for (const m of newM) { console.log(m) }
-    console.log(`\n${newM.length}/${matches.length} paths are not already excluded.`)
+    console.log(`\n${newM.length}/${matches.length} paths are not excluded.`)
 
     return plist.build(pl)
   }
@@ -195,7 +151,9 @@ async function cmdExclude (args: string[]): Promise<number> {
   }
 
   function finalMessage () {
-    console.log('\nDone. Verify that new directories were added by navigating to System Preferences > Spotlight > Privacy')
+    isMacOSVersionGreaterThanOrEqualTo('11')
+      ? console.log('\nDone. Verify that new directories were added by navigating to System Settings > Siri & Spotlight > Spotlight Privacy')
+      : console.log('\nDone. Verify that new directories were added by navigating to System Preferences > Spotlight > Privacy')
   }
 }
 
@@ -218,13 +176,13 @@ async function cmdInclude (args: string[]): Promise<number> {
     searchDir.replace('~', process.env.HOME)
   }
 
-  let plf
-  try { plf = fs.readFileSync(PLIST_PATH) } catch (e) {
+  let plf: string
+  try { plf = fs.readFileSync(PLIST_PATH, 'utf-8') } catch (e) {
     throw new Error('Unable to read spotlight plist at ' + PLIST_PATH + '\nAre you sure you are running as sudo ?\n' +
             'In future versions of macOS beyond 11.2 (Big Sur) the plist path may have moved.')
   }
 
-  const p = plist.parse(plf.toString())
+  const p = plist.parse(plf) as plist.PlistObject & SpotlightPList
 
   const excscopy: string[] = JSON.parse(JSON.stringify(p.Exclusions))
   const newexcs: string[] = []
@@ -246,18 +204,15 @@ async function cmdInclude (args: string[]): Promise<number> {
   console.log(searchDir + '/**/' + excludeName)
 
   if (confirm) {
-    if ((await question('\nRemove all from Spotlight excluded list? (y/N)')).toLowerCase() != 'y') { return 1 }
+    if ((await question('\nRemove all from Spotlight excluded list? (y/N)')).toLowerCase() !== 'y') { return 1 }
   }
   fs.writeFileSync(PLIST_PATH, plist.build(p))
   return 0
 }
 
 async function cmdJob (args: string[]): Promise<number> {
-  const es = getExcludes()
-  for (const e of es) {
-    if (e.length < 1) { continue }
-    const name = e.split(' ~~~ ')[0]
-    const base = e.split(' ~~~ ')[1]
+  const es = await getExcludes()
+  for (const { name, base } of es) {
     await cmdExclude([name, base, '--force'])
   }
   return 0
@@ -265,55 +220,40 @@ async function cmdJob (args: string[]): Promise<number> {
 
 async function cmdAdd (args: string[]): Promise<number> {
   const toAdd = getExcludeInfo(args)
-  const line = toAdd.name + ' ~~~ ' + toAdd.base
-  const es = getExcludes()
-  if (es.includes(line)) { throw new Error('This rule already exists in the excludes file.') }
-  es.push(line)
-  setExcludes(es)
-  return await cmdJob([])
+  await insert(toAdd)
+
+  return 0
 }
 
 async function cmdRemove (args: string[]): Promise<number> {
   const ex = getExcludeInfo(args)
-  const line = ex.name + ' ~~~ ' + ex.base
-  const es = getExcludes()
-  const newList: string[] = []
-  for (const e of es) {
-    if (e.length < 1) { continue }
-    if (e !== line) {
-      newList.push(e)
-    }
-  }
-  setExcludes(newList)
+  await removeOne(ex)
   return await cmdInclude(args)
 }
 
 async function cmdList (args: string[]): Promise<number> {
-  const es = getExcludes()
-  for (const l of es) {
-    if (l.length < 1) { continue }
-
-    const nm = l.split(' ~~~ ')[0]
-    const bs = l.split(' ~~~ ')[1]
-
-    const secondStr = l.replace(' ~~~ ', ' inside of: ')
-    console.log('Searching for ' + secondStr)
+  const es = await getExcludes()
+  if (!es.length) {
+    console.error('you have 0 list')
+  }
+  for (const { name, base } of es) {
+    console.log(`Searching for ${name} inside of: ${base}`)
 
     if (args.includes('--showPaths')) {
-      const r = globToRegExp(bs + '/**/' + nm)
+      const r = globToRegExp(base + '/**/' + name)
       let plistStr: string
       try {
         plistStr = fs.readFileSync(PLIST_PATH, 'utf-8')
       } catch (e) { throw new Error('Could not read Spotlight plist. You may need to run this command using sudo.') }
-      const p = plist.parse(plistStr.toString())
-      let pcount = 0
+      const p = plist.parse(plistStr.toString()) as plist.PlistObject & SpotlightPList
+      let pCount = 0
       for (const e of p.Exclusions) {
         if (r.test(e)) {
           console.log(`    ${e}`)
-          pcount++
+          pCount++
         }
       }
-      console.log(`    ---- (${pcount}) matching directories found here. ----`)
+      console.log(`    ---- (${pCount}) matching directories found here. ----`)
     }
   }
   return 0
@@ -352,25 +292,7 @@ function getExcludeInfo (args: string[]): { name: string, base: string } {
   return out
 }
 
-const fname = '.spotlight-manager'
-if (!process.env.HOME) throw new Error('$HOME undefined')
-const dfPath = join(process.env.HOME, fname)
-
-function getExcludes (): string[] {
-  if (!fs.existsSync(dfPath)) { fs.writeFileSync(dfPath, '') }
-  const dotFs = fs.readFileSync(dfPath).toString().split('\n')
-  return dotFs
-}
-
-function setExcludes (excludes: string[]) {
-  let s = ''
-  for (const e of excludes) {
-    s += e + '\n'
-  }
-  fs.writeFileSync(dfPath, s)
-}
-
-async function errLaunch () {
+export async function errLaunch () {
   const cFgred = '\x1b[31m'
   const cBright = '\x1b[1m'
   const cReset = '\x1b[0m'
@@ -385,5 +307,3 @@ async function errLaunch () {
     process.exit(1)
   }
 }
-
-void errLaunch()
