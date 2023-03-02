@@ -4,6 +4,7 @@ import readline from 'readline'
 
 import * as command from '../command/index.js'
 import * as usage from '../usage.js'
+import chalk from 'chalk'
 
 const rl: readline.Interface = readline.createInterface({
   input: process.stdin,
@@ -90,19 +91,17 @@ export function getExcludeInfo (args: string[]): { name: string, base: string } 
 }
 
 export async function errLaunch () {
-  const cFgred = '\x1b[31m'
-  const cBright = '\x1b[1m'
-  const cReset = '\x1b[0m'
-
+  const redBold = chalk.red.bold
+  const red = chalk.red
   try {
     process.exit(await main())
   } catch (e) {
     if (!(e instanceof Error)) console.log(e)
     // e is Error
     console.log('')
-    console.log(cBright + cFgred + 'Error:')
-    console.log(cBright + cFgred + (e as Error).message)
-    console.log(cReset)
+    console.log(redBold('Error:'))
+    console.log('')
+    console.log(red((e as Error).message))
     process.exit(1)
   }
 }

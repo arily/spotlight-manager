@@ -1,18 +1,16 @@
 import chalk from 'chalk'
 import {
   macOSVersion,
-  // isMacOSVersion,
-  // isMacOSVersionGreaterThanOrEqualTo,
-  // assertMacOSVersion,
+  isMacOSVersion,
   assertMacOSVersionGreaterThanOrEqualTo,
   assertMacOS
-  // isMacOS
 } from 'macos-version'
 
 /* pre-requirement checks */
-// need macos
 assertMacOS()
-// need macos >= 10.14(Mojave)
+// >= Mojave
 assertMacOSVersionGreaterThanOrEqualTo('10.14')
 
-console.debug(chalk.green(`passed system requirement checks: ${macOSVersion() as string}`))
+const ver = `${isMacOSVersion('<11') ? 'Mac OS X' : 'macOS'} ${macOSVersion() as string}`
+
+console.debug(chalk.green(`passed system requirement checks: ${ver}`))

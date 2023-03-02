@@ -1,3 +1,4 @@
+import chalk from 'chalk'
 import glob from 'fast-glob'
 import globToRegExp from 'glob-to-regexp'
 import { isMacOSVersionGreaterThanOrEqualTo } from 'macos-version'
@@ -15,10 +16,12 @@ const {
 function finalMessage () {
   isMacOSVersionGreaterThanOrEqualTo('11')
     ? console.log(
-      '\nDone. Verify that new directories were added by navigating to System Settings > Siri & Spotlight > Spotlight Privacy'
+      `${chalk.green.bold('Done.')}
+    Verify that new directories were added by navigating to System Settings > Siri & Spotlight > Spotlight Privacy`
     )
     : console.log(
-      '\nDone. Verify that new directories were added by navigating to System Preferences > Spotlight > Privacy'
+      `${chalk.green.bold('Done.')}
+    Verify that new directories were added by navigating to System Preferences > Spotlight > Privacy`
     )
 }
 
