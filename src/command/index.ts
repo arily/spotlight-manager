@@ -4,7 +4,7 @@ import globToRegExp from 'glob-to-regexp'
 import { isMacOSVersionGreaterThanOrEqualTo } from 'macos-version'
 
 import { getExcludeInfo, question } from '../cli/index.js'
-import { read, appendExcludes, save } from '../plist/index.js'
+import { read, concatExcludes, save } from '../plist/index.js'
 import { config } from '../state/index.js'
 import { print } from '../usage.js'
 import { restartMDS } from './exec.js'
@@ -12,6 +12,19 @@ import { restartMDS } from './exec.js'
 const {
   excludes: { get: getExcludes, insert, removeOne }
 } = config
+
+function printDirs (dirs: unknown[]) {
+  if (!dirs.length) {
+    console.warn('No match.')
+    return 0
+  }
+  for (const d of dirs) {
+    console.log(d)
+  }
+  console.log(
+      `\nThese ${dirs.length} directories will be added to Spotlight's excluded dirs list, if not added already.\n`
+  )
+}
 
 function finalMessage () {
   isMacOSVersionGreaterThanOrEqualTo('11')
@@ -83,8 +96,17 @@ export async function include (args: string[]): Promise<number> {
 }
 export async function job (args: string[]): Promise<number> {
   const es = await getExcludes()
-  for (const { name, base } of es) {
-    await exclude([name, base, '--force'])
+  const parallel: Array<Promise<string[]>> = []
+  for (const entry of es) {
+    parallel.push(getMatches(entry))
+  }
+  const results = await Promise.all(parallel)
+
+  const dirs = results.flat()
+
+  if (concatExcludes(dirs)) {
+    restartMDS()
+    finalMessage()
   }
   return 0
 }
@@ -126,6 +148,17 @@ export async function list (args: string[]): Promise<number> {
   return 0
 }
 
+async function getMatches (exclude: Awaited<ReturnType<typeof config['get']>>['excludes'][number]): Promise<string[]> {
+  const { name, base } = exclude
+  const dirs = await glob(['**/' + name], {
+    ignore: ['**/' + name + '/*/**'],
+    onlyDirectories: true,
+    cwd: base,
+    absolute: true
+  })
+  return dirs
+}
+
 export async function exclude (args: string[]): Promise<number> {
   const confirm = !args.includes('--force')
   let excludeName: string
@@ -145,34 +178,13 @@ export async function exclude (args: string[]): Promise<number> {
     searchDir.replace('~', process.env.HOME)
   }
 
-  const m = await getMatches()
+  const m = await getMatches({ name: excludeName, base: searchDir })
+  printDirs(m)
   if (confirm) {
     if ((await question('Confirm (y/N)?')).toLowerCase() !== 'y') {
       return 1
     }
   }
-  appendExcludes(m)
-  restartMDS()
-  finalMessage()
+  concatExcludes(m)
   return 0
-
-  async function getMatches (): Promise<string[]> {
-    const dirs = await glob(['**/' + excludeName], {
-      ignore: ['**/' + excludeName + '/*/**'],
-      onlyDirectories: true,
-      cwd: searchDir,
-      absolute: true
-    })
-    if (!dirs.length) {
-      console.warn('No match.')
-      return []
-    }
-    for (const d of dirs) {
-      console.log(d)
-    }
-    console.log(
-      `\nThese ${dirs.length} directories will be added to Spotlight's excluded dirs list, if not added already.\n`
-    )
-    return dirs
-  }
 }

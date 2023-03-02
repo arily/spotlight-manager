@@ -26,7 +26,7 @@ export function createContext (path: fs.PathLike = dfPath, encoding: BufferEncod
   }
 
   type Config = Awaited<ReturnType<typeof get>>
-  type Exclude = Config['excludes'][number]
+  type ExcludeEntry = Config['excludes'][number]
 
   async function set (config: Config) {
     fs.writeFileSync(path, yaml.stringify(config))
@@ -53,12 +53,12 @@ export function createContext (path: fs.PathLike = dfPath, encoding: BufferEncod
     excludes: {
       get: getExcludes,
       set: setExcludes,
-      async insert (exclude: Exclude) {
+      async insert (exclude: ExcludeEntry) {
         const config = await get()
         config.excludes.push(exclude)
         await set(config)
       },
-      async removeOne (removing: Exclude) {
+      async removeOne (removing: ExcludeEntry) {
         const config = await get()
         config.excludes.filter(ex => ex.name === removing.name && ex.base === removing.base)
         await set(config)

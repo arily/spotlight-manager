@@ -1,6 +1,7 @@
 import child_process from 'child_process'
 
 export function restartMDS () {
+  console.log('Restarting MDS...')
   child_process.exec(
     'launchctl stop com.apple.metadata.mds',
     (_err, stdout, stderr) => {

@@ -25,28 +25,38 @@ export function read () {
 }
 
 // Returns modified plist
-export function newList (matches: string[]): string {
+export function newList (matches: string[]) {
   const pl = read()
   const newM: string[] = []
   for (const m of matches) {
     if (!pl.Exclusions.includes(m)) {
       newM.push(m)
-      pl.Exclusions.push(m)
     }
   }
-
+  if (!newM.length) {
+    return null
+  }
   console.log('\n\nNew Paths:')
   for (const m of newM) {
     console.log(m)
   }
-  console.log(`\n${newM.length}/${matches.length} paths are not excluded.`)
-
+  console.log(`\n${newM.length} / ${matches.length} paths are not excluded.`)
+  const newArr = pl.Exclusions.concat(newM)
+  pl.Exclusions = [...new Set(newArr)]
+  if (newArr.length !== pl.Exclusions.length) console.error('found duplicates, removed')
   return plist.build(pl)
 }
 
-export function appendExcludes (matches: string[]) {
-  fs.writeFileSync(PLIST_PATH, newList(matches))
-  console.log('Plist updated. Restarting MDS...')
+export function concatExcludes (matches: string[]) {
+  const rs = newList(matches)
+  if (!rs) {
+    console.log('No new paths.')
+    return false
+  } else {
+    fs.writeFileSync(PLIST_PATH, rs)
+    console.log('Plist updated.')
+    return true
+  }
 }
 
 export function save (p: plist.PlistObject & SpotlightPList) {
