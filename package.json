@@ -8,10 +8,10 @@
   "main": "built/entry.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "build": "tsc --build",
+    "build": "tsc",
     "dev": "npx @digitak/esrun src/dev.ts",
     "dev:install": "npm-run-all build && sudo npm remove -g spotlight-manager && sudo npm link",
-    "dev:install:run": "npm-run-all build dev:install && sudo spotlight-manager"
+    "dev:install:run": "npm-run-all dev:install && sudo spotlight-manager"
   },
   "type": "module",
   "keywords": [

@@ -237,7 +237,7 @@ async function cmdList (args: string[]): Promise<number> {
     console.error('you have 0 list')
   }
   for (const { name, base } of es) {
-    console.log(`Searching for ${name} inside of: ${base}`)
+    console.log(`\`${name}\` inside \`${base}\``)
 
     if (args.includes('--showPaths')) {
       const r = globToRegExp(base + '/**/' + name)

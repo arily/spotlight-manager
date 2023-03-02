@@ -3,7 +3,7 @@ import yaml from 'yaml'
 import fs from 'fs'
 import fsP from 'fs/promises'
 
-const fileName = '.spotlight-manager'
+const fileName = '.spotlight-manager.yaml'
 if (!process.env.HOME) throw new Error('$HOME undefined')
 const dfPath = join(process.env.HOME, fileName)
 
@@ -17,7 +17,7 @@ export function createContext (path: fs.PathLike = dfPath, encoding: BufferEncod
   // TODO more type-safe
   async function get () {
     const yml = await fsP.readFile(path, encoding)
-    const config = yaml.parse(yml) as Record<string, unknown>
+    const config = yaml.parse(yml) as Record<string, unknown> | null ?? {}
     return {
       spotlightPList: (config.spotlightPList || '/System/Volumes/Data/.Spotlight-V100/VolumeConfiguration.plist') as string,
       excludes: (config.excludes || []) as Array<{ name: string, base: string }>
