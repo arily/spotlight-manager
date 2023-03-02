@@ -12,9 +12,9 @@ SUBCOMMANDS:
         --force                 Do not ask for confirmation, useful for 
                                 calling from another script.
 
-    unexclude       <DIRNAME_TO_UNEXCLUDE> <SEARCH_DIR (optional)> [--force]
+    include       <DIRNAME_TO_INCLUDE> <SEARCH_DIR (optional)> [--force]
                     Remove excluded dirs matching these rules from spotlight's 
-                    exclusions. (renable indexing of this directory)
+                    exclusions. (re-enable indexing of this directory)
 
     job             Search for any new exclusions that match saved 
                     exclusion rules and exclude all at once. (use for cron job)
@@ -40,3 +40,4 @@ SUBCOMMANDS:
 FLAGS:
     -h | --help     Print this page.
 `
+export function print () { console.log(USAGE) }

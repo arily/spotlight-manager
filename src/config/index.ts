@@ -1,7 +1,8 @@
-import { join, resolve } from 'path'
-import yaml from 'yaml'
 import fs from 'fs'
 import fsP from 'fs/promises'
+import { join, resolve } from 'path'
+
+import yaml from 'yaml'
 
 const fileName = '.spotlight-manager.yaml'
 if (!process.env.HOME) throw new Error('$HOME undefined')

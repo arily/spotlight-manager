@@ -1,2 +1,2 @@
-import { errLaunch } from './index.js'
+import { errLaunch } from './cli/index.js'
 void errLaunch()

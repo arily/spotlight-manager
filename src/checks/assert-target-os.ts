@@ -1,5 +1,6 @@
+import chalk from 'chalk'
 import {
-  // macOSVersion,
+  macOSVersion,
   // isMacOSVersion,
   // isMacOSVersionGreaterThanOrEqualTo,
   // assertMacOSVersion,
@@ -14,4 +15,4 @@ assertMacOS()
 // need macos >= 10.14(Mojave)
 assertMacOSVersionGreaterThanOrEqualTo('10.14')
 
-console.debug('passed system requirement checks')
+console.debug(chalk.green(`passed system requirement checks: ${macOSVersion() as string}`))

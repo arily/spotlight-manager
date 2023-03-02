@@ -24,11 +24,13 @@
   "author": "Ankush Girotra",
   "license": "ISC",
   "dependencies": {
+    "chalk": "^5.2.0",
     "fast-glob": "^3.2.5",
     "glob-to-regexp": "^0.4.1",
     "macos-version": "^6.0.0",
     "plist": "^3.0.2",
-    "typescript": "*"
+    "typescript": "*",
+    "yaml": "^2.2.1"
   },
   "devDependencies": {
     "@types/eslint": "^8.21.1",
